@@ -51,6 +51,19 @@
           <p class="site-help">Type a name, then press Enter or click a suggestion to add it.</p>
         </div>
 
+        <div class="presets">
+          <p class="sites-label">Presets</p>
+          <div class="preset-row">
+            <select id="presetSelect" aria-label="Preset selector"></select>
+            <div class="preset-actions">
+              <button id="applyPresetButton" class="preset-btn primary" type="button">Apply preset</button>
+              <button id="openPresetModalButton" class="preset-btn" type="button">Create preset</button>
+              <button id="deletePresetButton" class="preset-btn danger" type="button" disabled>Delete preset</button>
+            </div>
+          </div>
+          <p id="presetMeta" class="site-help"></p>
+        </div>
+
         <div class="blocked-section">
           <div class="sites">
             <p class="sites-label">Blocked sites during focus</p>
@@ -84,6 +97,33 @@
         <p><strong>Blocking tip:</strong> If blocking is inactive, run the app with elevated permissions so it can update the system hosts file.</p>
       </section>
     </main>
+
+    <div id="presetModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="presetModalTitle">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 id="presetModalTitle">Create Preset</h2>
+          <button id="closePresetModalButton" class="icon-btn" type="button">X</button>
+        </div>
+        <div class="modal-body">
+          <label for="presetNameInput">Preset name</label>
+          <input id="presetNameInput" type="text" placeholder="My Preset" />
+
+          <div class="modal-section">
+            <p class="modal-label">Sites</p>
+            <div id="presetSiteList" class="modal-list"></div>
+          </div>
+
+          <div class="modal-section">
+            <p class="modal-label">Apps</p>
+            <div id="presetAppList" class="modal-list"></div>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="createPresetButton" class="preset-btn primary" type="button">Save preset</button>
+          <button id="cancelPresetButton" class="preset-btn" type="button">Cancel</button>
+        </div>
+      </div>
+    </div>
 
     <script src="renderer.js"></script>
   </body>

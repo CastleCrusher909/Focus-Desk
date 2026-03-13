@@ -210,6 +210,146 @@ button:disabled {
   gap: 12px;
 }
 
+.presets {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+}
+
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.preset-row select {
+  padding: 10px 12px;
+  font-size: 14px;
+  border-radius: 12px;
+  border: 1px solid #d6d1c6;
+  background: #fbfaf7;
+  color: var(--ink);
+  min-width: 220px;
+}
+
+.preset-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.preset-btn {
+  padding: 10px 12px;
+  font-size: 13px;
+  border-radius: 12px;
+  background: #f0ece2;
+  color: var(--ink);
+}
+
+.preset-btn.primary {
+  background: var(--accent);
+  color: #ffffff;
+  box-shadow: 0 10px 20px rgba(47, 107, 116, 0.2);
+}
+
+.preset-btn.danger {
+  background: #f3e0dd;
+  color: #5c201a;
+}
+
+.preset-btn:disabled {
+  opacity: 0.55;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(29, 27, 22, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+
+.modal.hidden {
+  display: none;
+}
+
+.modal-content {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 20px;
+  width: min(560px, 90vw);
+  box-shadow: 0 24px 60px rgba(29, 27, 22, 0.25);
+  display: grid;
+  gap: 16px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-body {
+  display: grid;
+  gap: 12px;
+}
+
+.modal-body input[type="text"] {
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid #d6d1c6;
+  background: #fbfaf7;
+  color: var(--ink);
+}
+
+.modal-section {
+  display: grid;
+  gap: 8px;
+}
+
+.modal-label {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--muted);
+  margin: 0;
+}
+
+.modal-list {
+  display: grid;
+  gap: 6px;
+  max-height: 160px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid #e2dbcf;
+  border-radius: 12px;
+  background: #fbfaf7;
+}
+
+.modal-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.icon-btn {
+  border: none;
+  background: #f0ece2;
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
 .blocked-section {
   margin-top: 26px;
   display: grid;

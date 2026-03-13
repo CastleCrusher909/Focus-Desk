@@ -17,6 +17,18 @@ const blockedChips = document.getElementById("blockedChips");
 const blockedAppChips = document.getElementById("blockedAppChips");
 const unifiedSearch = document.getElementById("unifiedSearch");
 const unifiedSuggestions = document.getElementById("unifiedSuggestions");
+const presetSelect = document.getElementById("presetSelect");
+const applyPresetButton = document.getElementById("applyPresetButton");
+const openPresetModalButton = document.getElementById("openPresetModalButton");
+const deletePresetButton = document.getElementById("deletePresetButton");
+const presetMeta = document.getElementById("presetMeta");
+const presetModal = document.getElementById("presetModal");
+const closePresetModalButton = document.getElementById("closePresetModalButton");
+const cancelPresetButton = document.getElementById("cancelPresetButton");
+const createPresetButton = document.getElementById("createPresetButton");
+const presetNameInput = document.getElementById("presetNameInput");
+const presetSiteList = document.getElementById("presetSiteList");
+const presetAppList = document.getElementById("presetAppList");
 
 let timerId = null;
 let endTime = null;
@@ -26,6 +38,9 @@ let blockedApps = loadBlockedApps();
 let installedApps = [];
 let unifiedSuggestTimer = null;
 let latestUnifiedQuery = "";
+
+const PRESET_STORAGE_KEY = "focusCustomPresets";
+let customPresets = loadCustomPresets();
 
 function formatTime(totalSeconds) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -38,6 +53,7 @@ function normalizeSite(input) {
   if (!trimmed) return "";
   const withoutProtocol = trimmed.replace(/^https?:\/\//, "");
   const withoutPath = withoutProtocol.split("/")[0];
+  if (withoutPath.includes(" ")) return "";
   return withoutPath.replace(/^www\./, "");
 }
 
@@ -67,6 +83,35 @@ function loadBlockedApps() {
     return [...DEFAULT_APPS];
   }
   return [...DEFAULT_APPS];
+}
+
+function loadCustomPresets() {
+  const raw = localStorage.getItem(PRESET_STORAGE_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      return parsed
+        .filter((preset) => preset && typeof preset === "object")
+        .map((preset) => ({
+          id: String(preset.id || ""),
+          name: String(preset.name || "Custom Preset"),
+          sites: Array.isArray(preset.sites) ? preset.sites : [],
+          apps: Array.isArray(preset.apps) ? preset.apps : [],
+          builtIn: false
+        }))
+        .filter((preset) => preset.id && preset.name);
+    }
+  } catch (error) {
+    return [];
+  }
+  return [];
+}
+
+function saveCustomPresets(next) {
+  customPresets = next;
+  localStorage.setItem(PRESET_STORAGE_KEY, JSON.stringify(next));
+  renderPresets();
 }
 
 function saveBlockedSites(sites) {
@@ -135,6 +180,179 @@ function renderBlockedApps() {
     chip.appendChild(remove);
     blockedAppChips.appendChild(chip);
   });
+}
+
+function getAllPresets() {
+  return [...customPresets];
+}
+
+function getSelectedPreset() {
+  const all = getAllPresets();
+  return all.find((preset) => preset.id === presetSelect.value) || all[0] || null;
+}
+
+function renderPresets() {
+  const all = getAllPresets();
+  presetSelect.innerHTML = "";
+
+  all.forEach((preset) => {
+    const option = document.createElement("option");
+    option.value = preset.id;
+    option.textContent = preset.name;
+    presetSelect.appendChild(option);
+  });
+
+  if (!presetSelect.value && all.length > 0) {
+    presetSelect.value = all[0].id;
+  }
+
+  updatePresetMeta();
+}
+
+function updatePresetMeta() {
+  const preset = getSelectedPreset();
+  if (!preset) {
+    presetMeta.textContent = "No presets yet.";
+    deletePresetButton.disabled = true;
+    applyPresetButton.disabled = true;
+    return;
+  }
+
+  const sitesCount = Array.isArray(preset.sites) ? preset.sites.length : 0;
+  const appsCount = Array.isArray(preset.apps) ? preset.apps.length : 0;
+  presetMeta.textContent = `${sitesCount} sites · ${appsCount} apps`;
+
+  deletePresetButton.disabled = false;
+  applyPresetButton.disabled = false;
+}
+
+function mergeApps(existing, incoming) {
+  const seen = new Set(existing.map((app) => app.toLowerCase()));
+  const merged = [...existing];
+  incoming.forEach((app) => {
+    const normalized = String(app || "").trim();
+    if (!normalized) return;
+    const key = normalized.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    merged.push(normalized);
+  });
+  return merged;
+}
+
+function applyPreset(preset, modeName) {
+  const presetSites = (preset.sites || []).map(normalizeSite).filter(Boolean);
+  const presetApps = (preset.apps || []).map((app) => String(app || "").trim()).filter(Boolean);
+
+  const nextSites =
+    modeName === "replace"
+      ? Array.from(new Set(presetSites))
+      : Array.from(new Set([...blockedSites, ...presetSites]));
+
+  const nextApps =
+    modeName === "replace"
+      ? mergeApps([], presetApps)
+      : mergeApps(blockedApps, presetApps);
+
+  saveBlockedSites(nextSites);
+  saveBlockedApps(nextApps);
+
+  if (mode === "focus") {
+    startBlocking();
+    startAppBlocking();
+  }
+}
+
+function deleteSelectedPreset() {
+  const preset = getSelectedPreset();
+  if (!preset) return;
+  const confirmed = window.confirm(`Delete preset "${preset.name}"?`);
+  if (!confirmed) return;
+  saveCustomPresets(customPresets.filter((item) => item.id !== preset.id));
+}
+
+function renderPresetSelection() {
+  presetSiteList.innerHTML = "";
+  presetAppList.innerHTML = "";
+
+  if (blockedSites.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "modal-item";
+    empty.textContent = "No blocked sites yet.";
+    presetSiteList.appendChild(empty);
+  } else {
+    blockedSites.forEach((site, index) => {
+      const label = document.createElement("label");
+      label.className = "modal-item";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = true;
+      checkbox.value = site;
+      checkbox.id = `preset-site-${index}`;
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(site));
+      presetSiteList.appendChild(label);
+    });
+  }
+
+  if (blockedApps.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "modal-item";
+    empty.textContent = "No blocked apps yet.";
+    presetAppList.appendChild(empty);
+  } else {
+    blockedApps.forEach((app, index) => {
+      const label = document.createElement("label");
+      label.className = "modal-item";
+      const checkbox = document.createElement("input");
+      checkbox.type = "checkbox";
+      checkbox.checked = true;
+      checkbox.value = app;
+      checkbox.id = `preset-app-${index}`;
+      label.appendChild(checkbox);
+      label.appendChild(document.createTextNode(app));
+      presetAppList.appendChild(label);
+    });
+  }
+}
+
+function openPresetModal() {
+  presetNameInput.value = "";
+  renderPresetSelection();
+  presetModal.classList.remove("hidden");
+}
+
+function closePresetModal() {
+  presetModal.classList.add("hidden");
+}
+
+function createPresetFromModal() {
+  const name = presetNameInput.value.trim();
+  if (!name) {
+    setStatus("Enter a preset name.");
+    return;
+  }
+
+  const selectedSites = Array.from(
+    presetSiteList.querySelectorAll("input[type='checkbox']:checked")
+  ).map((input) => input.value);
+
+  const selectedApps = Array.from(
+    presetAppList.querySelectorAll("input[type='checkbox']:checked")
+  ).map((input) => input.value);
+
+  const id = `custom-${Date.now()}`;
+  const preset = {
+    id,
+    name,
+    sites: selectedSites,
+    apps: selectedApps
+  };
+
+  saveCustomPresets([...customPresets, preset]);
+  presetSelect.value = id;
+  updatePresetMeta();
+  closePresetModal();
 }
 
 function normalizeSuggestionToSite(value) {
@@ -238,10 +456,13 @@ async function updateUnifiedSuggestions() {
 }
 
 function addSite(value) {
-  const normalized = normalizeSite(value);
+  let normalized = normalizeSite(value);
   if (!normalized) {
     setStatus("Enter a valid website (like youtube.com).");
     return;
+  }
+  if (!normalized.includes(".")) {
+    normalized = `${normalized}.com`;
   }
   if (blockedSites.includes(normalized)) {
     setStatus("That site is already in the list.");
@@ -460,8 +681,12 @@ startButton.addEventListener("click", async () => {
   startButton.disabled = true;
   endButton.disabled = false;
   setStatus("Focus session running", "Blocking: starting");
-  await startBlocking();
-  await startAppBlocking();
+  try {
+    await startBlocking();
+    await startAppBlocking();
+  } catch (error) {
+    setStatus("Focus session running", "Blocking: unavailable");
+  }
   startTimer(minutes * 60, "Focus Time");
 });
 
@@ -510,13 +735,49 @@ unifiedSearch.addEventListener("keydown", (event) => {
   }
 });
 
+presetSelect.addEventListener("change", () => {
+  updatePresetMeta();
+});
+
+applyPresetButton.addEventListener("click", () => {
+  const preset = getSelectedPreset();
+  if (!preset) return;
+  applyPreset(preset, "merge");
+});
+
+
+deletePresetButton.addEventListener("click", () => {
+  deleteSelectedPreset();
+});
+
+openPresetModalButton.addEventListener("click", () => {
+  openPresetModal();
+});
+
+closePresetModalButton.addEventListener("click", () => {
+  closePresetModal();
+});
+
+cancelPresetButton.addEventListener("click", () => {
+  closePresetModal();
+});
+
+createPresetButton.addEventListener("click", () => {
+  createPresetFromModal();
+});
+
 updateStatsUI();
 renderBlockedSites();
 renderBlockedApps();
+renderPresets();
 closeSuggestions(unifiedSuggestions);
 resetUI();
 
-window.focusApi.listInstalledApps().then((apps) => {
-  installedApps = apps;
-  updateUnifiedSuggestions();
-});
+if (window.focusApi && typeof window.focusApi.listInstalledApps === "function") {
+  window.focusApi.listInstalledApps().then((apps) => {
+    installedApps = apps;
+    updateUnifiedSuggestions();
+  });
+} else {
+  installedApps = [];
+}

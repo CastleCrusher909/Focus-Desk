@@ -200,6 +200,8 @@ ipcMain.handle("apps-list", async () => {
 
   const appDirs = [
     "/Applications",
+    "/System/Applications",
+    "/System/Applications/Utilities",
     path.join(app.getPath("home"), "Applications")
   ];
   const apps = new Set();
