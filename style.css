@@ -569,6 +569,12 @@ button:disabled {
   text-align: right;
 }
 
+.chart-metrics {
+  display: grid;
+  gap: 8px;
+  text-align: right;
+}
+
 .chart-metric span {
   font-size: 24px;
   font-weight: 600;
@@ -586,6 +592,22 @@ canvas {
   width: 100%;
   border-radius: 14px;
   background: #fbfaf7;
+}
+
+.chart-controls {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.chart-controls button {
+  background: #f0ece2;
+  color: var(--ink);
+}
+
+.chart-controls button.active {
+  background: var(--accent);
+  color: #ffffff;
 }
 
 .note {

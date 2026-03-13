@@ -11,6 +11,7 @@ const statusText = document.getElementById("statusText");
 const blockStatus = document.getElementById("blockStatus");
 const sessionCount = document.getElementById("sessionCount");
 const weeklyTotal = document.getElementById("weeklyTotal");
+const historyTotal = document.getElementById("historyTotal");
 const weeklyChart = document.getElementById("weeklyChart");
 const blockNotice = document.getElementById("blockNotice");
 const blockedChips = document.getElementById("blockedChips");
@@ -22,6 +23,11 @@ const applyPresetButton = document.getElementById("applyPresetButton");
 const openPresetModalButton = document.getElementById("openPresetModalButton");
 const deletePresetButton = document.getElementById("deletePresetButton");
 const presetMeta = document.getElementById("presetMeta");
+const chartTitle = document.getElementById("chartTitle");
+const chartSubtitle = document.getElementById("chartSubtitle");
+const dailyViewButton = document.getElementById("dailyViewButton");
+const weeklyViewButton = document.getElementById("weeklyViewButton");
+const yearlyViewButton = document.getElementById("yearlyViewButton");
 const presetModal = document.getElementById("presetModal");
 const closePresetModalButton = document.getElementById("closePresetModalButton");
 const cancelPresetButton = document.getElementById("cancelPresetButton");
@@ -38,6 +44,7 @@ let blockedApps = loadBlockedApps();
 let installedApps = [];
 let unifiedSuggestTimer = null;
 let latestUnifiedQuery = "";
+let chartView = "daily";
 
 const PRESET_STORAGE_KEY = "focusCustomPresets";
 let customPresets = loadCustomPresets();
@@ -548,6 +555,67 @@ function getWeeklyData() {
   return days;
 }
 
+function getDailySeries(days = 7) {
+  const stats = loadStats();
+  const points = [];
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - i);
+    const key = getDateKey(date);
+    const entry = stats[key] || { sessions: 0, minutes: 0 };
+    points.push({ label: date.toLocaleDateString(undefined, { weekday: "short" }), minutes: entry.minutes });
+  }
+  return points;
+}
+
+function getWeeklySeries(weeks = 12) {
+  const stats = loadStats();
+  const points = [];
+  const today = new Date();
+  for (let i = weeks - 1; i >= 0; i -= 1) {
+    const start = new Date(today);
+    start.setDate(start.getDate() - i * 7);
+    const label = start.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+    let total = 0;
+    for (let d = 0; d < 7; d += 1) {
+      const date = new Date(start);
+      date.setDate(start.getDate() - start.getDay() + d);
+      const key = getDateKey(date);
+      const entry = stats[key] || { minutes: 0 };
+      total += entry.minutes || 0;
+    }
+    points.push({ label, minutes: total });
+  }
+  return points;
+}
+
+function getYearlySeries(months = 12) {
+  const stats = loadStats();
+  const points = [];
+  const today = new Date();
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const date = new Date(today.getFullYear(), today.getMonth() - i, 1);
+    const label = date.toLocaleDateString(undefined, { month: "short" });
+    let total = 0;
+    const month = date.getMonth();
+    const year = date.getFullYear();
+    Object.keys(stats).forEach((key) => {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(key)) return;
+      const [y, m] = key.split("-").map(Number);
+      if (y === year && m - 1 === month) {
+        total += stats[key].minutes || 0;
+      }
+    });
+    points.push({ label, minutes: total });
+  }
+  return points;
+}
+
+function getHistoryTotal() {
+  const stats = loadStats();
+  return Object.values(stats).reduce((sum, item) => sum + (item.minutes || 0), 0);
+}
+
 function updateStatsUI() {
   const stats = loadStats();
   const todayKey = getDateKey();
@@ -557,10 +625,11 @@ function updateStatsUI() {
   const weekly = getWeeklyData();
   const totalMinutes = weekly.reduce((sum, item) => sum + item.minutes, 0);
   weeklyTotal.textContent = `${totalMinutes} min`;
-  drawWeeklyChart(weekly);
+  historyTotal.textContent = `${getHistoryTotal()} min`;
+  updateChartView();
 }
 
-function drawWeeklyChart(weekly) {
+function drawChart(series) {
   const ctx = weeklyChart.getContext("2d");
   const width = weeklyChart.width;
   const height = weeklyChart.height;
@@ -569,15 +638,35 @@ function drawWeeklyChart(weekly) {
   const padding = 24;
   const chartHeight = height - padding * 2;
   const chartWidth = width - padding * 2;
-  const maxMinutes = Math.max(60, ...weekly.map((day) => day.minutes));
-  const barWidth = chartWidth / weekly.length - 12;
+  const maxMinutes = Math.max(60, ...series.map((point) => point.minutes));
+  const barWidth = chartWidth / series.length - 12;
 
   ctx.fillStyle = "#f4efe6";
   ctx.fillRect(0, 0, width, height);
 
-  weekly.forEach((day, index) => {
+  const ticks = 4;
+  const useHours = maxMinutes >= 300;
+  ctx.fillStyle = "#6b645a";
+  ctx.font = "11px Space Grotesk";
+  for (let i = 0; i <= ticks; i += 1) {
+    const rawValue = (maxMinutes / ticks) * i;
+    const displayValue = useHours ? rawValue / 60 : rawValue;
+    const rounded = useHours
+      ? Math.round(displayValue * 10) / 10
+      : Math.round(displayValue);
+    const unit = useHours ? "hr" : "min";
+    const y = height - padding - (chartHeight / ticks) * i;
+    ctx.fillText(`${rounded} ${unit}`, 6, y + 4);
+    ctx.strokeStyle = "rgba(29, 27, 22, 0.08)";
+    ctx.beginPath();
+    ctx.moveTo(padding, y);
+    ctx.lineTo(width - padding, y);
+    ctx.stroke();
+  }
+
+  series.forEach((point, index) => {
     const x = padding + index * (barWidth + 12);
-    const barHeight = (day.minutes / maxMinutes) * chartHeight;
+    const barHeight = (point.minutes / maxMinutes) * chartHeight;
     const y = height - padding - barHeight;
 
     ctx.fillStyle = "#2c6f6a";
@@ -585,9 +674,30 @@ function drawWeeklyChart(weekly) {
 
     ctx.fillStyle = "#6b645a";
     ctx.font = "12px Space Grotesk";
-    const label = day.date.toLocaleDateString(undefined, { weekday: "short" });
-    ctx.fillText(label, x, height - padding + 14);
+    ctx.fillText(point.label, x, height - padding + 14);
   });
+}
+
+function updateChartView() {
+  dailyViewButton.classList.toggle("active", chartView === "daily");
+  weeklyViewButton.classList.toggle("active", chartView === "weekly");
+  yearlyViewButton.classList.toggle("active", chartView === "yearly");
+
+  if (chartView === "daily") {
+    chartTitle.textContent = "Daily study time";
+    chartSubtitle.textContent = "Minutes focused over the last 7 days";
+    drawChart(getDailySeries(7));
+    return;
+  }
+  if (chartView === "weekly") {
+    chartTitle.textContent = "Weekly study time";
+    chartSubtitle.textContent = "Minutes focused over the last 12 weeks";
+    drawChart(getWeeklySeries(12));
+    return;
+  }
+  chartTitle.textContent = "Yearly study time";
+  chartSubtitle.textContent = "Minutes focused over the last 12 months";
+  drawChart(getYearlySeries(12));
 }
 
 function setStatus(text, meta) {
@@ -737,6 +847,25 @@ unifiedSearch.addEventListener("keydown", (event) => {
 
 presetSelect.addEventListener("change", () => {
   updatePresetMeta();
+});
+
+presetSelect.addEventListener("change", () => {
+  updatePresetMeta();
+});
+
+dailyViewButton.addEventListener("click", () => {
+  chartView = "daily";
+  updateChartView();
+});
+
+weeklyViewButton.addEventListener("click", () => {
+  chartView = "weekly";
+  updateChartView();
+});
+
+yearlyViewButton.addEventListener("click", () => {
+  chartView = "yearly";
+  updateChartView();
 });
 
 applyPresetButton.addEventListener("click", () => {

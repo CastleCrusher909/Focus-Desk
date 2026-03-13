@@ -82,13 +82,24 @@
       <section class="panel chart-panel">
         <div class="chart-header">
           <div>
-            <p class="chart-title">Weekly study time</p>
-            <p class="chart-subtitle">Minutes focused over the last 7 days</p>
+            <p id="chartTitle" class="chart-title">Study time</p>
+            <p id="chartSubtitle" class="chart-subtitle">Daily focus over the last 7 days</p>
           </div>
-          <div class="chart-metric">
-            <span id="weeklyTotal">0 min</span>
-            <p>Total this week</p>
+          <div class="chart-metrics">
+            <div class="chart-metric">
+              <span id="weeklyTotal">0 min</span>
+              <p>Total this week</p>
+            </div>
+            <div class="chart-metric">
+              <span id="historyTotal">0 min</span>
+              <p>Total all time</p>
+            </div>
           </div>
+        </div>
+        <div class="chart-controls">
+          <button id="dailyViewButton" class="ghost" type="button">Daily</button>
+          <button id="weeklyViewButton" class="ghost" type="button">Weekly</button>
+          <button id="yearlyViewButton" class="ghost" type="button">Yearly</button>
         </div>
         <canvas id="weeklyChart" width="820" height="220" aria-label="Weekly study time chart"></canvas>
       </section>
