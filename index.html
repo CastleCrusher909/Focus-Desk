@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Focus Desk</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <div>
+          <p class="eyebrow">Study Focus</p>
+          <h1>Focus Desk</h1>
+          <p class="subtitle">Stay on task with timed sessions and gentle breaks.</p>
+        </div>
+        <div class="status-card">
+          <p class="status-label">Status</p>
+          <p id="statusText" class="status-text">Ready to focus</p>
+          <p id="blockStatus" class="status-meta">Blocking: inactive</p>
+        </div>
+      </header>
+
+      <section class="panel">
+        <div class="controls">
+          <div class="input-group">
+            <label for="durationInput">Study length (minutes)</label>
+            <input id="durationInput" type="number" min="5" max="180" value="25" />
+          </div>
+          <div class="actions">
+            <button id="startButton" class="primary">Start Focus Session</button>
+            <button id="endButton" class="ghost" disabled>End Session</button>
+          </div>
+        </div>
+
+        <div class="timer">
+          <p class="timer-label" id="timerLabel">Focus Time</p>
+          <div id="timerDisplay" class="timer-display">25:00</div>
+          <div class="timer-meta">
+            <span id="sessionCount">Sessions today: 0</span>
+            <span id="breakHint">Next break: 5 min</span>
+          </div>
+        </div>
+
+        <div class="add-section">
+          <p class="sites-label">Add websites or apps</p>
+          <div class="dropdown">
+            <input id="unifiedSearch" type="text" placeholder="Search apps or websites" />
+            <div id="unifiedSuggestions" class="suggestions"></div>
+          </div>
+          <p class="site-help">Type a name, then press Enter or click a suggestion to add it.</p>
+        </div>
+
+        <div class="blocked-section">
+          <div class="sites">
+            <p class="sites-label">Blocked sites during focus</p>
+            <div id="blockedChips" class="chips"></div>
+            <div class="sites-manager">
+              <p class="site-help">Remove a blocked site using the X on its bubble.</p>
+            </div>
+          </div>
+
+          <div class="apps">
+            <p class="sites-label">Blocked apps during focus (macOS)</p>
+            <div id="blockedAppChips" class="chips"></div>
+            <div class="sites-manager">
+              <p class="site-help">Remove a blocked app using the X on its bubble.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel chart-panel">
+        <div class="chart-header">
+          <div>
+            <p class="chart-title">Weekly study time</p>
+            <p class="chart-subtitle">Minutes focused over the last 7 days</p>
+          </div>
+          <div class="chart-metric">
+            <span id="weeklyTotal">0 min</span>
+            <p>Total this week</p>
+          </div>
+        </div>
+        <canvas id="weeklyChart" width="820" height="220" aria-label="Weekly study time chart"></canvas>
+      </section>
+
+      <section class="panel note" id="blockNotice">
+        <p><strong>Blocking tip:</strong> If blocking is inactive, run the app with elevated permissions so it can update the system hosts file.</p>
+      </section>
+    </main>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>
