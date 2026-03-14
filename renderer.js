@@ -35,6 +35,10 @@ const createPresetButton = document.getElementById("createPresetButton");
 const presetNameInput = document.getElementById("presetNameInput");
 const presetSiteList = document.getElementById("presetSiteList");
 const presetAppList = document.getElementById("presetAppList");
+const presetSiteSearch = document.getElementById("presetSiteSearch");
+const presetSiteSuggestions = document.getElementById("presetSiteSuggestions");
+const presetAppSearch = document.getElementById("presetAppSearch");
+const presetAppSuggestions = document.getElementById("presetAppSuggestions");
 
 let timerId = null;
 let endTime = null;
@@ -45,6 +49,10 @@ let installedApps = [];
 let unifiedSuggestTimer = null;
 let latestUnifiedQuery = "";
 let chartView = "daily";
+let presetSiteDraft = [];
+let presetAppDraft = [];
+let presetSiteTimer = null;
+let presetAppTimer = null;
 
 const PRESET_STORAGE_KEY = "focusCustomPresets";
 let customPresets = loadCustomPresets();
@@ -282,49 +290,59 @@ function renderPresetSelection() {
   presetSiteList.innerHTML = "";
   presetAppList.innerHTML = "";
 
-  if (blockedSites.length === 0) {
+  if (presetSiteDraft.length === 0) {
     const empty = document.createElement("div");
     empty.className = "modal-item";
-    empty.textContent = "No blocked sites yet.";
+    empty.textContent = "No sites selected yet.";
     presetSiteList.appendChild(empty);
   } else {
-    blockedSites.forEach((site, index) => {
-      const label = document.createElement("label");
-      label.className = "modal-item";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = true;
-      checkbox.value = site;
-      checkbox.id = `preset-site-${index}`;
-      label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(site));
-      presetSiteList.appendChild(label);
+    presetSiteDraft.forEach((site) => {
+      const row = document.createElement("div");
+      row.className = "modal-item";
+      row.textContent = site;
+      const remove = document.createElement("button");
+      remove.className = "chip-remove";
+      remove.textContent = "X";
+      remove.addEventListener("click", () => {
+        presetSiteDraft = presetSiteDraft.filter((item) => item !== site);
+        renderPresetSelection();
+      });
+      row.appendChild(remove);
+      presetSiteList.appendChild(row);
     });
   }
 
-  if (blockedApps.length === 0) {
+  if (presetAppDraft.length === 0) {
     const empty = document.createElement("div");
     empty.className = "modal-item";
-    empty.textContent = "No blocked apps yet.";
+    empty.textContent = "No apps selected yet.";
     presetAppList.appendChild(empty);
   } else {
-    blockedApps.forEach((app, index) => {
-      const label = document.createElement("label");
-      label.className = "modal-item";
-      const checkbox = document.createElement("input");
-      checkbox.type = "checkbox";
-      checkbox.checked = true;
-      checkbox.value = app;
-      checkbox.id = `preset-app-${index}`;
-      label.appendChild(checkbox);
-      label.appendChild(document.createTextNode(app));
-      presetAppList.appendChild(label);
+    presetAppDraft.forEach((app) => {
+      const row = document.createElement("div");
+      row.className = "modal-item";
+      row.textContent = app;
+      const remove = document.createElement("button");
+      remove.className = "chip-remove";
+      remove.textContent = "X";
+      remove.addEventListener("click", () => {
+        presetAppDraft = presetAppDraft.filter((item) => item !== app);
+        renderPresetSelection();
+      });
+      row.appendChild(remove);
+      presetAppList.appendChild(row);
     });
   }
 }
 
 function openPresetModal() {
   presetNameInput.value = "";
+  presetSiteDraft = [];
+  presetAppDraft = [];
+  presetSiteSearch.value = "";
+  presetAppSearch.value = "";
+  closeSuggestions(presetSiteSuggestions);
+  closeSuggestions(presetAppSuggestions);
   renderPresetSelection();
   presetModal.classList.remove("hidden");
 }
@@ -339,14 +357,8 @@ function createPresetFromModal() {
     setStatus("Enter a preset name.");
     return;
   }
-
-  const selectedSites = Array.from(
-    presetSiteList.querySelectorAll("input[type='checkbox']:checked")
-  ).map((input) => input.value);
-
-  const selectedApps = Array.from(
-    presetAppList.querySelectorAll("input[type='checkbox']:checked")
-  ).map((input) => input.value);
+  const selectedSites = [...presetSiteDraft];
+  const selectedApps = [...presetAppDraft];
 
   const id = `custom-${Date.now()}`;
   const preset = {
@@ -360,6 +372,79 @@ function createPresetFromModal() {
   presetSelect.value = id;
   updatePresetMeta();
   closePresetModal();
+}
+
+function renderSimpleSuggestions(container, items, onPick) {
+  container.innerHTML = "";
+  container.classList.toggle("is-open", items.length > 0);
+  if (items.length === 0) return;
+  items.forEach((item) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "suggestion";
+    button.textContent = item;
+    button.addEventListener("click", () => onPick(item));
+    container.appendChild(button);
+  });
+}
+
+function addPresetSite(value) {
+  let normalized = normalizeSite(value);
+  if (!normalized) return;
+  if (!normalized.includes(".")) {
+    normalized = `${normalized}.com`;
+  }
+  if (presetSiteDraft.includes(normalized)) return;
+  presetSiteDraft = [...presetSiteDraft, normalized];
+  renderPresetSelection();
+}
+
+function addPresetApp(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  const exists = presetAppDraft.some((app) => app.toLowerCase() === trimmed.toLowerCase());
+  if (exists) return;
+  presetAppDraft = [...presetAppDraft, trimmed];
+  renderPresetSelection();
+}
+
+async function updatePresetSiteSuggestions() {
+  const query = presetSiteSearch.value.trim();
+  if (!query) {
+    closeSuggestions(presetSiteSuggestions);
+    return;
+  }
+  let results = [];
+  try {
+    results = await window.focusApi.siteSuggest(query);
+  } catch (error) {
+    results = [];
+  }
+  const normalized = results
+    .map((item) => normalizeSuggestionToSite(item))
+    .filter(Boolean);
+  const unique = Array.from(new Set(normalized)).slice(0, 6);
+  renderSimpleSuggestions(presetSiteSuggestions, unique, (site) => {
+    addPresetSite(site);
+    presetSiteSearch.value = "";
+    closeSuggestions(presetSiteSuggestions);
+  });
+}
+
+function updatePresetAppSuggestions() {
+  const query = presetAppSearch.value.trim().toLowerCase();
+  if (!query) {
+    closeSuggestions(presetAppSuggestions);
+    return;
+  }
+  const matches = installedApps
+    .filter((app) => app.toLowerCase().includes(query))
+    .slice(0, 6);
+  renderSimpleSuggestions(presetAppSuggestions, matches, (app) => {
+    addPresetApp(app);
+    presetAppSearch.value = "";
+    closeSuggestions(presetAppSuggestions);
+  });
 }
 
 function normalizeSuggestionToSite(value) {
@@ -893,6 +978,42 @@ cancelPresetButton.addEventListener("click", () => {
 
 createPresetButton.addEventListener("click", () => {
   createPresetFromModal();
+});
+
+presetSiteSearch.addEventListener("input", () => {
+  if (presetSiteTimer) clearTimeout(presetSiteTimer);
+  presetSiteTimer = setTimeout(updatePresetSiteSuggestions, 250);
+});
+
+presetSiteSearch.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addPresetSite(presetSiteSearch.value);
+    presetSiteSearch.value = "";
+    closeSuggestions(presetSiteSuggestions);
+  }
+});
+
+presetSiteSearch.addEventListener("blur", () => {
+  setTimeout(() => closeSuggestions(presetSiteSuggestions), 120);
+});
+
+presetAppSearch.addEventListener("input", () => {
+  if (presetAppTimer) clearTimeout(presetAppTimer);
+  presetAppTimer = setTimeout(updatePresetAppSuggestions, 250);
+});
+
+presetAppSearch.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    addPresetApp(presetAppSearch.value);
+    presetAppSearch.value = "";
+    closeSuggestions(presetAppSuggestions);
+  }
+});
+
+presetAppSearch.addEventListener("blur", () => {
+  setTimeout(() => closeSuggestions(presetAppSuggestions), 120);
 });
 
 updateStatsUI();
