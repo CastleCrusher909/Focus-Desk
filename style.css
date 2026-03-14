@@ -21,6 +21,95 @@ body {
   color: var(--ink);
 }
 
+body.focus-mode {
+  background: #14161a;
+  color: #f5f2ea;
+}
+
+body.focus-mode .header,
+body.focus-mode .controls,
+body.focus-mode .add-section,
+body.focus-mode .presets,
+body.focus-mode .blocked-section,
+body.focus-mode .chart-panel,
+body.focus-mode #blockNotice {
+  display: none;
+}
+
+body.focus-mode .app {
+  max-width: none;
+  padding: 0;
+  height: 100vh;
+  justify-content: center;
+  align-items: center;
+}
+
+body.focus-mode .timer {
+  background: #1d1f24;
+  color: #f5f2ea;
+  border-radius: 24px;
+  padding: 36px;
+  width: min(520px, 90vw);
+}
+
+body.focus-mode .timer-label,
+body.focus-mode .timer-meta {
+  color: #a6abb3;
+}
+
+body.focus-mode .timer-meta {
+  display: none;
+}
+
+body.focus-mode .timer-display {
+  font-size: 64px;
+  letter-spacing: 0.12em;
+}
+
+body.focus-mode.paused-mode .timer {
+  background: #2b2020;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.focus-mode.paused-mode .timer-label {
+  color: #ffbdbd;
+  font-size: 14px;
+  letter-spacing: 0.3em;
+}
+
+body.focus-mode.paused-mode .timer-display {
+  color: #ffdede;
+  font-size: 72px;
+}
+
+.focus-controls {
+  display: none;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+body.focus-mode .focus-controls {
+  display: flex;
+}
+
+.pause-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #a6abb3;
+}
+
+.pause-btn {
+  background: #2a2d33;
+  color: #f5f2ea;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-size: 12px;
+}
+
 .app {
   max-width: 980px;
   margin: 0 auto;

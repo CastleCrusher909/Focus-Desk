@@ -28,6 +28,8 @@ const chartSubtitle = document.getElementById("chartSubtitle");
 const dailyViewButton = document.getElementById("dailyViewButton");
 const weeklyViewButton = document.getElementById("weeklyViewButton");
 const yearlyViewButton = document.getElementById("yearlyViewButton");
+const unblockButton = document.getElementById("unblockButton");
+const pauseButtons = document.querySelectorAll(".pause-btn");
 const presetModal = document.getElementById("presetModal");
 const closePresetModalButton = document.getElementById("closePresetModalButton");
 const cancelPresetButton = document.getElementById("cancelPresetButton");
@@ -49,6 +51,7 @@ let installedApps = [];
 let unifiedSuggestTimer = null;
 let latestUnifiedQuery = "";
 let chartView = "daily";
+let remainingFocusSeconds = 0;
 let presetSiteDraft = [];
 let presetAppDraft = [];
 let presetSiteTimer = null;
@@ -829,6 +832,9 @@ function startTimer(seconds, label) {
 
   const tick = () => {
     const remaining = Math.max(0, Math.round((endTime - Date.now()) / 1000));
+    if (mode === "focus") {
+      remainingFocusSeconds = remaining;
+    }
     timerDisplay.textContent = formatTime(remaining);
     if (remaining <= 0) {
       clearInterval(timerId);
@@ -841,14 +847,25 @@ function startTimer(seconds, label) {
   timerId = setInterval(tick, 1000);
 }
 
+function setFocusMode(isActive) {
+  document.body.classList.toggle("focus-mode", isActive);
+}
+
+function setPauseMode(isPaused) {
+  document.body.classList.toggle("paused-mode", isPaused);
+}
+
 function resetUI() {
   mode = "idle";
   endTime = null;
+  remainingFocusSeconds = 0;
   timerDisplay.textContent = formatTime(Number(durationInput.value || 25) * 60);
   timerLabel.textContent = "Focus Time";
   startButton.disabled = false;
   endButton.disabled = true;
   setStatus("Ready to focus", "Blocking: inactive");
+  setFocusMode(false);
+  setPauseMode(false);
 }
 
 function handleTimerComplete() {
@@ -859,7 +876,21 @@ function handleTimerComplete() {
     setStatus("Break time", "Blocking: inactive");
     stopBlocking();
     stopAppBlocking();
+    setFocusMode(false);
+    setPauseMode(false);
     startTimer(BREAK_SECONDS, "Break Time");
+  } else if (mode === "pause") {
+    mode = "focus";
+    setStatus("Focus session running", "Blocking: starting");
+    try {
+      startBlocking();
+      startAppBlocking();
+    } catch (error) {
+      setStatus("Focus session running", "Blocking: unavailable");
+    }
+    setFocusMode(true);
+    setPauseMode(false);
+    startTimer(Math.max(1, remainingFocusSeconds), "Time left");
   } else if (mode === "break") {
     resetUI();
   }
@@ -873,6 +904,7 @@ startButton.addEventListener("click", async () => {
   }
 
   mode = "focus";
+  remainingFocusSeconds = minutes * 60;
   startButton.disabled = true;
   endButton.disabled = false;
   setStatus("Focus session running", "Blocking: starting");
@@ -882,7 +914,9 @@ startButton.addEventListener("click", async () => {
   } catch (error) {
     setStatus("Focus session running", "Blocking: unavailable");
   }
-  startTimer(minutes * 60, "Focus Time");
+  setFocusMode(true);
+  setPauseMode(false);
+  startTimer(minutes * 60, "Time left");
 });
 
 endButton.addEventListener("click", () => {
@@ -891,6 +925,29 @@ endButton.addEventListener("click", () => {
   stopBlocking();
   stopAppBlocking();
   resetUI();
+});
+
+unblockButton.addEventListener("click", () => {
+  if (timerId) clearInterval(timerId);
+  timerId = null;
+  stopBlocking();
+  stopAppBlocking();
+  resetUI();
+});
+
+pauseButtons.forEach((button) => {
+  button.addEventListener("click", () => {
+    if (mode !== "focus") return;
+    const minutes = Number(button.dataset.minutes || 1);
+    if (timerId) clearInterval(timerId);
+    timerId = null;
+    stopBlocking();
+    stopAppBlocking();
+    mode = "pause";
+    setStatus("Paused", "Blocking: inactive");
+    setPauseMode(true);
+    startTimer(minutes * 60, "Paused");
+  });
 });
 
 durationInput.addEventListener("change", () => {
