@@ -52,6 +52,8 @@ let unifiedSuggestTimer = null;
 let latestUnifiedQuery = "";
 let chartView = "daily";
 let remainingFocusSeconds = 0;
+let focusAccumulatedSeconds = 0;
+let focusSegmentStart = null;
 let presetSiteDraft = [];
 let presetAppDraft = [];
 let presetSiteTimer = null;
@@ -847,6 +849,18 @@ function startTimer(seconds, label) {
   timerId = setInterval(tick, 1000);
 }
 
+function recordFocusTime() {
+  if (focusSegmentStart) {
+    focusAccumulatedSeconds += Math.max(0, Math.round((Date.now() - focusSegmentStart) / 1000));
+    focusSegmentStart = null;
+  }
+  const minutes = Math.max(0, Math.round(focusAccumulatedSeconds / 60));
+  if (minutes > 0) {
+    updateTodayStats(minutes);
+  }
+  focusAccumulatedSeconds = 0;
+}
+
 function setFocusMode(isActive) {
   document.body.classList.toggle("focus-mode", isActive);
 }
@@ -859,6 +873,8 @@ function resetUI() {
   mode = "idle";
   endTime = null;
   remainingFocusSeconds = 0;
+  focusAccumulatedSeconds = 0;
+  focusSegmentStart = null;
   timerDisplay.textContent = formatTime(Number(durationInput.value || 25) * 60);
   timerLabel.textContent = "Focus Time";
   startButton.disabled = false;
@@ -870,8 +886,7 @@ function resetUI() {
 
 function handleTimerComplete() {
   if (mode === "focus") {
-    const minutes = Number(durationInput.value || 25);
-    updateTodayStats(minutes);
+    recordFocusTime();
     mode = "break";
     setStatus("Break time", "Blocking: inactive");
     stopBlocking();
@@ -890,6 +905,7 @@ function handleTimerComplete() {
     }
     setFocusMode(true);
     setPauseMode(false);
+    focusSegmentStart = Date.now();
     startTimer(Math.max(1, remainingFocusSeconds), "Time left");
   } else if (mode === "break") {
     resetUI();
@@ -905,6 +921,8 @@ startButton.addEventListener("click", async () => {
 
   mode = "focus";
   remainingFocusSeconds = minutes * 60;
+  focusAccumulatedSeconds = 0;
+  focusSegmentStart = Date.now();
   startButton.disabled = true;
   endButton.disabled = false;
   setStatus("Focus session running", "Blocking: starting");
@@ -924,6 +942,9 @@ endButton.addEventListener("click", () => {
   timerId = null;
   stopBlocking();
   stopAppBlocking();
+  if (mode === "focus" || mode === "pause") {
+    recordFocusTime();
+  }
   resetUI();
 });
 
@@ -932,6 +953,9 @@ unblockButton.addEventListener("click", () => {
   timerId = null;
   stopBlocking();
   stopAppBlocking();
+  if (mode === "focus" || mode === "pause") {
+    recordFocusTime();
+  }
   resetUI();
 });
 
@@ -946,6 +970,10 @@ pauseButtons.forEach((button) => {
     mode = "pause";
     setStatus("Paused", "Blocking: inactive");
     setPauseMode(true);
+    if (focusSegmentStart) {
+      focusAccumulatedSeconds += Math.max(0, Math.round((Date.now() - focusSegmentStart) / 1000));
+      focusSegmentStart = null;
+    }
     startTimer(minutes * 60, "Paused");
   });
 });
