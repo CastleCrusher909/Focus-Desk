@@ -1,13 +1,44 @@
 const { app, BrowserWindow, ipcMain, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
-const { execFile } = require("child_process");
+const { execFile, execFileSync } = require("child_process");
+const os = require("os");
 const https = require("https");
 
 const BLOCK_START = "# FOCUS_DESK_START";
 const BLOCK_END = "# FOCUS_DESK_END";
 let appBlockInterval = null;
 let appBlockList = [];
+const helperPath = "/usr/local/bin/focusdesk-helper";
+
+function hasHelper() {
+  try {
+    fs.accessSync(helperPath, fs.constants.X_OK);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+function writeHostsContent(content) {
+  const hostsPath = getHostsPath();
+  if (hasHelper()) {
+    const tmpPath = path.join(os.tmpdir(), `focusdesk-hosts-${Date.now()}`);
+    fs.writeFileSync(tmpPath, content, "utf8");
+    try {
+      execFileSync(helperPath, ["write", tmpPath], { stdio: "ignore" });
+    } finally {
+      try {
+        fs.unlinkSync(tmpPath);
+      } catch (error) {
+        // ignore cleanup errors
+      }
+    }
+    return true;
+  }
+  fs.writeFileSync(hostsPath, content, "utf8");
+  return true;
+}
 
 function getHostsPath() {
   if (process.platform === "win32") {
@@ -31,11 +62,36 @@ function buildBlockSection(sites) {
     if (!base) return;
     domains.add(base);
     domains.add(`www.${base}`);
+    if (base === "youtube.com") {
+      domains.add("m.youtube.com");
+      domains.add("music.youtube.com");
+      domains.add("gaming.youtube.com");
+      domains.add("kids.youtube.com");
+      domains.add("studio.youtube.com");
+      domains.add("youtu.be");
+      domains.add("ytimg.com");
+      domains.add("i.ytimg.com");
+    }
+    if (base === "reddit.com") {
+      domains.add("old.reddit.com");
+      domains.add("new.reddit.com");
+      domains.add("m.reddit.com");
+    }
+    if (base === "instagram.com") {
+      domains.add("m.instagram.com");
+    }
+    if (base === "tiktok.com") {
+      domains.add("m.tiktok.com");
+    }
   });
 
-  const lines = Array.from(domains)
+  const lines = [];
+  Array.from(domains)
     .sort()
-    .map((domain) => `127.0.0.1 ${domain}`);
+    .forEach((domain) => {
+      lines.push(`127.0.0.1 ${domain}`);
+      lines.push(`::1 ${domain}`);
+    });
 
   return [BLOCK_START, ...lines, BLOCK_END].join("\n");
 }
@@ -55,7 +111,7 @@ function applyBlockList(sites) {
   const withoutOld = stripExistingBlockSection(original);
   const section = buildBlockSection(sites);
   const updated = `${withoutOld}\n\n${section}\n`;
-  fs.writeFileSync(hostsPath, updated, "utf8");
+  writeHostsContent(updated);
   return true;
 }
 
@@ -63,7 +119,7 @@ function removeBlockList() {
   const hostsPath = getHostsPath();
   const original = fs.readFileSync(hostsPath, "utf8");
   const updated = `${stripExistingBlockSection(original)}\n`;
-  fs.writeFileSync(hostsPath, updated, "utf8");
+  writeHostsContent(updated);
   return true;
 }
 
